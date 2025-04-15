@@ -23,7 +23,7 @@ BLOCK_JSON_FILE = None
 
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand(
-    'command script add -f sbt.handle_command sbt -h "Resymbolicate stripped ObjC backtrace"')
+    'command script add -f xsbt.handle_command xsbt -h "Resymbolicate stripped ObjC backtrace"')
     # print('========')
     # print('[sbt]: Resymbolicate stripped ObjC backtrace')
     # print('\txbr [-f BlockSymbolFile]')
@@ -309,7 +309,7 @@ def find_symbol_from_address_script(frame_addr, module_path):
     return command_script
 
 def generate_option_parser():
-    usage = "usage: sbt -f block-json-file-path"
+    usage = "usage: xsbt -f block-json-file-path"
     parser = optparse.OptionParser(usage=usage, prog="lookup")
 
     # parser.add_option("-a", "--address",

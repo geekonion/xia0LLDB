@@ -23,7 +23,6 @@ import utils
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand('command script add -f shortcmds.croc croc -h "croc: go to can run oc env point"')
     debugger.HandleCommand('command script add -f shortcmds.log_malloc_stack log_malloc_stack -h "open to log malloc stack info"')
-    debugger.HandleCommand('command script add -f shortcmds.heap heap -h "import lldb.macosx.heap script"')
     debugger.HandleCommand('command script add -f shortcmds.pblock pblock -h "print objc block"')
     debugger.HandleCommand('command script add -f shortcmds.mem_dump mem_dump -h "[mem_dump outFile addr size]:dump process memory to file"')
     debugger.HandleCommand('command script add -f shortcmds.mr mr -h "[mr addr count]: dump mem of bytes"')

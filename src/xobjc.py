@@ -20,10 +20,10 @@ import re
 import utils
 
 def __lldb_init_module(debugger, internal_dict):
-    debugger.HandleCommand('command script add -f xobjc.ivars ivars -h "ivars made by xia0"')
-    debugger.HandleCommand('command script add -f xobjc.methods methods -h "methods made by xia0"')
-    debugger.HandleCommand('command script add -f xobjc.xivars xivars -h "ivars made by xia0 for macOS or ivars not work"')
-    debugger.HandleCommand('command script add -f xobjc.xmethods xmethods -h "methods made by xia0 for macOS or methods not work"')
+    debugger.HandleCommand('command script add -f xobjc.ivars xivars -h "ivars made by xia0"')
+    debugger.HandleCommand('command script add -f xobjc.methods xmethods -h "methods made by xia0"')
+    debugger.HandleCommand('command script add -f xobjc.xivars xxivars -h "ivars made by xia0 for macOS or ivars not work"')
+    debugger.HandleCommand('command script add -f xobjc.xmethods xxmethods -h "methods made by xia0 for macOS or methods not work"')
     debugger.HandleCommand('command script add -f xobjc.xprotocol xprotocol -h "print protocol info"')
 
 

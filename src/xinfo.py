@@ -22,7 +22,7 @@ import utils
 
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand(
-    'command script add -f info.handle_command info -h "[usage] info [-a,-m]"')
+    'command script add -f xinfo.handle_command xinfo -h "[usage] xinfo [-a,-m]"')
     # print('========')
     # print('[info]: get basic info of process/function/module/address/...')
     # print('\tinfo [-m moduleName, -a address, -f funtionName, -u UserDefaults]')
@@ -60,7 +60,7 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
         result.AppendMessage(str(ret))
         return
             
-    result.AppendMessage(str('usage: info [-m moduleName, -a address, -u UserDefaults]'))
+    result.AppendMessage(str('usage: xinfo [-m moduleName, -a address, -u UserDefaults]'))
     return 
 
 #   get module info by module name 
