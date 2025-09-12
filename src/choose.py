@@ -120,78 +120,70 @@ def choose(debugger, classname):
     typedef Class * (*copy_class_list_t)(size_t &size);
     copy_class_list_t copy_class_list = [](size_t &size) -> Class *{
         size = (size_t)objc_getClassList(NULL, 0);
-        Class * data = (Class *)(malloc(sizeof(Class) * size));
+        Class * cls_list = (Class *)(malloc(sizeof(Class) * size));
         for (;;) {
-            size_t writ = (size_t)objc_getClassList(data, (int)size);
+            size_t writ = (size_t)objc_getClassList(cls_list, (int)size);
             if (writ <= size) {
                 size = writ;
-                return data;
+                return cls_list;
             }
             
-            Class * copy = (Class *)(realloc(data, sizeof(Class) * writ));
+            Class * copy = (Class *)(realloc(cls_list, sizeof(Class) * writ));
             if (copy == NULL) {
-                free(data);
+                free(cls_list);
                 return NULL;
             }
-            data = copy;
+            cls_list = copy;
             size = writ;
         }
-    }
-    // function void choose_(task_t task, void *baton, unsigned type, vm_range_t *ranges, unsigned count)
-    typedef void (*choose__t)(task_t task, void *baton, unsigned type, vm_range_t *ranges, unsigned count);
-    choose__t choose_ = [](task_t task, void *baton, unsigned type, vm_range_t *ranges, unsigned count) -> void {
+    };
+    
+    // function void choose_(task_t task, void *baton, unsigned type, vm_range_t *ranges, unsigned naddr)
+    typedef void (*choose__t)(task_t task, void *baton, unsigned type, vm_range_t *ranges, unsigned naddr);
+    choose__t choose_ = [](task_t task, void *baton, unsigned type, vm_range_t *ranges, unsigned naddr) -> void {
         XZChoice * choiz = (struct XZChoice *)(baton);
-        for (unsigned i = 0; i < count; ++i) {
+        for (unsigned i = 0; i < naddr; ++i) {
             vm_range_t &range = ranges[i];
-            void * data = (void *)(range.address);
-            size_t size = range.size;
-            if (size < sizeof(XZObjectStruct))
+            void * obj_addr = (void *)(range.address);
+            size_t obj_size = range.size;
+            if (obj_size < sizeof(XZObjectStruct))
                 continue;
             
-            uintptr_t * pointers = (uintptr_t *)(data);
+            uintptr_t * pointers = (uintptr_t *)(obj_addr);
     #ifdef __arm64__
-            void * isa = (void *)(pointers[0] & 0x1fffffff8);
+            void * obj_isa = (void *)(pointers[0] & 0x1fffffff8);
     #else
             struct objc_class * isa = (struct objc_class *)(pointers[0]);
     #endif
-            //uint64_t p = (uint64_t)isa;
-            //[choiz->result_ addObject:[@(p) stringValue]];
 
             size_t needed;
-            for(unsigned i=0; i < [choiz->query_ count]; i++){
-                void * result = (void *)[choiz->query_ objectAtIndex:i];
+            NSUInteger nquerys = [choiz->query_ count];
+            for (NSInteger i = 0; i < nquerys; i++) {
+                void * result = (__bridge void *)[choiz->query_ objectAtIndex:i];
                 uint64_t result_intv = (uint64_t)result;
-                uint64_t isa_intv = (uint64_t)isa;
-                uint64_t data_intv = (uint64_t)data;
+                uint64_t isa_intv = (uint64_t)obj_isa;
                 
-                if(result_intv == isa_intv){
-                    /*
-                    NSMutableString* tmpStr = [NSMutableString string];
-                    [tmpStr appendString:@"isa:"];
-                    [tmpStr appendString:[@(isa_intv) stringValue]];
-                    [tmpStr appendString:@"query:"];
-                    [tmpStr appendString:[@(result_intv) stringValue]];
-                    [tmpStr appendString:@"object:"];
-                    [tmpStr appendString:[@(data_intv) stringValue]];
-                    [choiz->result_ addObject:tmpStr];
-                    continue;
-                    */
-                    
-                    size_t boundary = 496;
-                    
-                    #ifdef __LP64__
-                            boundary *= 2;
-                    #endif
-                    
-                    needed = (size_t)class_getInstanceSize((Class)result));
-                    if ((needed <= boundary && (needed + 15) / 16 * 16 != size) || (needed > boundary && (needed + 511) / 512 * 512 != size)){
+                if (result_intv == isa_intv) {
+                    needed = (size_t)class_getInstanceSize((__bridge Class)result);
+//                    size_t boundary = 496;
+//                    
+//                    #ifdef __LP64__
+//                            boundary *= 2;
+//                    #endif
+//                    
+//                    if ((needed <= boundary && (needed + 15) / 16 * 16 != obj_size) || (needed > boundary && (needed + 511) / 512 * 512 != obj_size)){
+//                        continue;
+//                    }
+
+                    // 内存中存在脏数据，可能有残留isa数据；因为内存对齐原因instance_size <= size
+                    if ((obj_size < needed) || (obj_size % 16 != 0)) {
                         continue;
                     }
-                    [choiz->result_ addObject:(id)data];
+                    [choiz->result_ addObject:(__bridge id)obj_addr];
                 }
             }
         }
-    }
+    };
     
     XZChoice choice;
     choice.query_ = (NSMutableArray*)[NSMutableArray array];
@@ -216,48 +208,55 @@ def choose(debugger, classname):
     task_t task = 0;
     kern_return_t err = (kern_return_t)malloc_get_all_zones (task, task_peek, &zones, &num_zones);
     
-    for (unsigned i = 0; i != num_zones; ++i) {
+        for (unsigned i = 0; i != num_zones; ++i) {
         const malloc_zone_t * zone = (const malloc_zone_t *)(zones[i]);
         if (zone == NULL || zone->introspect == NULL)
             continue;
-        zone->introspect->enumerator((task_t)mach_task_self(), &choice, MALLOC_PTR_IN_USE_RANGE_TYPE, zones[i], task_peek, choose_);
+        
+        struct malloc_introspection_t *introspect = zone->introspect;
+#if defined(__arm64e__) && __arm64e__ == 1
+        introspect = (struct malloc_introspection_t *)(void *)__builtin_ptrauth_strip(introspect, ptrauth_key_function_pointer);
+#endif
+        typedef kern_return_t (*enumeratorType)(task_t task, void *, unsigned type_mask, vm_address_t zone_address, memory_reader_t reader, vm_range_recorder_t recorder);
+        
+        enumeratorType enumerator = introspect->enumerator;
+#if defined(__arm64e__) && __arm64e__ == 1
+        enumerator = (enumeratorType)(void *)__builtin_ptrauth_sign_unauthenticated((void *)__builtin_ptrauth_strip((void *)enumerator, ptrauth_key_function_pointer), ptrauth_key_function_pointer, 0);
+#endif
+        enumerator((task_t)mach_task_self(), &choice, MALLOC_PTR_IN_USE_RANGE_TYPE, zones[i], task_peek, choose_);
     }
 
     NSArray* choosed = choice.result_;
     NSMutableString* retStr = [NSMutableString string];
-    unsigned choosedSize = [choosed count];
-    if(choosedSize == 0){
-
+    NSUInteger nchoosed = [choosed count];
+    if (nchoosed == 0) {
         [retStr appendString:@"Not found any object of class: "];
         [retStr appendString:className];
-
-    }else{
+    } else {
         uint64_t objAdrr = (uint64_t)choosed;
         [retStr appendString:@"====>xia0LLDB NSArray Address: "];
         [retStr appendString:[@(objAdrr) stringValue]];
         [retStr appendString:@"\tsize: "];
-        [retStr appendString:[@(choosedSize) stringValue]];
+        [retStr appendString:[@(nchoosed) stringValue]];
         [retStr appendString:@"\n"];
-        [retStr appendString:@"|  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | \n"];
-        [retStr appendString:@"V  V  V  V  V  V  V  V  V  V  V  V  V  V  V  V  V  V  V  V \n"];
+        [retStr appendString:@"↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓\n"];
 
-        for (unsigned i = 0; i != [choosed count]; ++i) {
-
-            if([(NSObject*)([choosed objectAtIndex:i]) isKindOfClass:[NSString class]]){
+        NSUInteger nchoosed = [choosed count];
+        for (NSInteger i = 0; i != nchoosed; ++i) {
+            if ((BOOL)[(Class)_class isSubclassOfClass:[NSString class]]) {
                 [retStr appendString: @"Now not support print the NSString, You can po it by yourself like below:"];
                 [retStr appendString:@"\n1. p/x "];
                 [retStr appendString:[@(objAdrr) stringValue]];
                 [retStr appendString:@"\n2. po (NSArray*)above_hex_address_vaule : print the NSArray contain NSString"];
                 [retStr appendString:@"\n3. po [(NSArray*)above_hex_address_vaule objectAtIndex:0] : print first NSString"];
+                
                 break;
-            
-            }else{
-
+            } else {
                 uint64_t objAdrr = (uint64_t)[choosed objectAtIndex:i];
                 [retStr appendString:@"======>xia0LLDB Object Address: "];
                 [retStr appendString:[@(objAdrr) stringValue]];
                 [retStr appendString:@"\n"];
-                [retStr appendString:[(NSObject*)([choosed objectAtIndex:i]) description]];
+                [retStr appendString:[(NSObject *)([choosed objectAtIndex:i]) description]];
             }
             
             [retStr appendString:@"\n"];
@@ -265,7 +264,7 @@ def choose(debugger, classname):
 
     }
 
-    retStr
+    retStr;
     '''
     retStr = utils.exe_script(debugger, command_script)
     return colorme.attr_str(utils.hex_int_in_str(retStr), 'green')
