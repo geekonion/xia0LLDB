@@ -233,35 +233,7 @@ def choose(debugger, classname):
         [retStr appendString:@"Not found any object of class: "];
         [retStr appendString:className];
     } else {
-        uint64_t objAdrr = (uint64_t)choosed;
-        [retStr appendString:@"====>xia0LLDB NSArray Address: "];
-        [retStr appendString:[@(objAdrr) stringValue]];
-        [retStr appendString:@"\tsize: "];
-        [retStr appendString:[@(nchoosed) stringValue]];
-        [retStr appendString:@"\n"];
-        [retStr appendString:@"↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓\n"];
-
-        NSUInteger nchoosed = [choosed count];
-        for (NSInteger i = 0; i != nchoosed; ++i) {
-            if ((BOOL)[(Class)_class isSubclassOfClass:[NSString class]]) {
-                [retStr appendString: @"Now not support print the NSString, You can po it by yourself like below:"];
-                [retStr appendString:@"\n1. p/x "];
-                [retStr appendString:[@(objAdrr) stringValue]];
-                [retStr appendString:@"\n2. po (NSArray*)above_hex_address_vaule : print the NSArray contain NSString"];
-                [retStr appendString:@"\n3. po [(NSArray*)above_hex_address_vaule objectAtIndex:0] : print first NSString"];
-                
-                break;
-            } else {
-                uint64_t objAdrr = (uint64_t)[choosed objectAtIndex:i];
-                [retStr appendString:@"======>xia0LLDB Object Address: "];
-                [retStr appendString:[@(objAdrr) stringValue]];
-                [retStr appendString:@"\n"];
-                [retStr appendString:[(NSObject *)([choosed objectAtIndex:i]) description]];
-            }
-            
-            [retStr appendString:@"\n"];
-        }
-
+        [retStr appendFormat:@"%@", choosed];
     }
 
     retStr;
